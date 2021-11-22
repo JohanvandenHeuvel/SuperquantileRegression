@@ -12,11 +12,11 @@ from data import generate_synthetic_data
 
 
 def basis_function(x):
-    return x
+    return np.array([x, x**2]).T
 
 
 def linear_model(w, X):
-    return X @ w
+    return X @ np.expand_dims(w, 1)
 
 
 def superquantile(y, alpha):
@@ -43,7 +43,7 @@ def superquantile(y, alpha):
         return y[-1]
 
 
-def objective_function(w, X, y, alpha):
+def objective_function(w, H, y, alpha):
     """
     Equation (III. 8) from paper
 
@@ -53,9 +53,8 @@ def objective_function(w, X, y, alpha):
     :param alpha: quantile parameter
     :return:
     """
-    n = len(X)
+    n = len(H)
 
-    H = basis_function(X)
     Z = y - linear_model(w, H)
     # sort to make a cumulative distribution out of it
     sorted_idx = np.argsort(Z.flatten())
@@ -122,7 +121,8 @@ def evaluate_Q(y, alpha, i):
 def subgradient_method(X, y, alpha):
 
     # STEP 0.  Initialize
-    w = [np.random.random(X.shape[1])]
+    H = basis_function(X)
+    w = [np.random.random(H.shape[1])]
     w_0 = [0]
     k = 1
 
@@ -131,7 +131,7 @@ def subgradient_method(X, y, alpha):
 
         # STEP 1.  Compute function value and sub gradient
         function_value, sub_gradient = objective_function(
-            np.expand_dims(w[k - 1], 1), X, y, alpha
+            w[k - 1], H, y, alpha
         )
 
         # print(k, sub_gradient, w[k - 1])
@@ -148,7 +148,7 @@ def subgradient_method(X, y, alpha):
         # STEP 4.  Update and go to step 1
         w.append(w[k - 1] - delta * sub_gradient)
 
-        pred = linear_model(np.expand_dims(w[k], 1), basis_function(X))
+        pred = linear_model(w[k], H)
         Z = y - pred
         sorted_idx = np.argsort(Z.flatten())
         Z = Z[sorted_idx]
@@ -165,18 +165,28 @@ def subgradient_method(X, y, alpha):
 
 
 def main():
-    x, y = generate_synthetic_data("1")
+    x, y = generate_synthetic_data("parabolic", w=[1, 2], b=[1], noise_strength=4)
 
-    for alpha in np.arange(0.1, 10) / 10:
+    alphas = np.round(np.arange(0.1, 1, 0.1), decimals=2)
 
-        w, w_0 = subgradient_method(
-            np.expand_dims(x, 1), np.expand_dims(y, 1), alpha
+    colors = plt.cm.coolwarm(np.linspace(0, 1, len(alphas)))
+    fig, axs = plt.subplots(1, 1, figsize=(10, 10))
+    ax = axs
+    ax.plot(x, y, "o")
+    for i, alpha in enumerate(alphas):
+
+        w, w_0 = subgradient_method(x, np.expand_dims(y, 1), alpha)
+
+        ax.plot(
+            x,
+            linear_model(w, basis_function(x))
+            + w_0,
+            color=colors[i],
         )
 
-        plt.plot(x, y, "o")
-        plt.plot(x, linear_model(np.expand_dims(w, 1), basis_function(np.expand_dims(x, 1))) + w_0)
-        plt.title(alpha)
-        plt.show()
+    ax.legend(["data"] + list(alphas))
+    ax.set(xlabel="x", ylabel="y")
+    plt.show()
 
 
 if __name__ == "__main__":
