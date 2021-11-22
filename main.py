@@ -12,7 +12,7 @@ from data import generate_synthetic_data
 
 
 def basis_function(x):
-    return np.array([x, x**2]).T
+    return np.array([x]).T
 
 
 def linear_model(w, X):
@@ -130,9 +130,7 @@ def subgradient_method(X, y, alpha):
     while True:
 
         # STEP 1.  Compute function value and sub gradient
-        function_value, sub_gradient = objective_function(
-            w[k - 1], H, y, alpha
-        )
+        function_value, sub_gradient = objective_function(w[k - 1], H, y, alpha)
 
         # print(k, sub_gradient, w[k - 1])
         if sub_gradient == 0:
@@ -165,24 +163,27 @@ def subgradient_method(X, y, alpha):
 
 
 def main():
-    x, y = generate_synthetic_data("parabolic", w=[1, 2], b=[1], noise_strength=4)
+    x, y = generate_synthetic_data("linear", w=[1], b=[1], noise_strength=1, num_points=1000)
 
     alphas = np.round(np.arange(0.1, 1, 0.1), decimals=2)
 
     colors = plt.cm.coolwarm(np.linspace(0, 1, len(alphas)))
-    fig, axs = plt.subplots(1, 1, figsize=(10, 10))
-    ax = axs
+    fig_1, ax = plt.subplots(1, 1, figsize=(10, 10))
+    fig_2, axs = plt.subplots(len(alphas), 1, figsize=(10, 50))
     ax.plot(x, y, "o")
     for i, alpha in enumerate(alphas):
 
         w, w_0 = subgradient_method(x, np.expand_dims(y, 1), alpha)
 
+        pred = linear_model(w, basis_function(x)) + w_0
+        Z = np.expand_dims(y, 1) - pred
+
         ax.plot(
             x,
-            linear_model(w, basis_function(x))
-            + w_0,
+            pred,
             color=colors[i],
         )
+        axs[i].hist(Z, bins=100)
 
     ax.legend(["data"] + list(alphas))
     ax.set(xlabel="x", ylabel="y")
